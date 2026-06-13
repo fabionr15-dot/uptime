@@ -1,0 +1,55 @@
+name: Uptime
+on:
+  schedule:
+    - cron: '*/10 * * * *'   # alle 10 Minuten (UTC). Für 5 Min: '*/5 * * * *'
+  workflow_dispatch: {}        # erlaubt manuelles Starten ("Run workflow")
+
+concurrency:
+  group: uptime
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        site:
+          - { name: "domaniai.com",            url: "https://domaniai.com",            slug: "domani" }
+          - { name: "insidespark.app",         url: "https://insidespark.app",         slug: "insidespark" }
+          - { name: "hdcleaners.ro",           url: "https://hdcleaners.ro",           slug: "hdcleaners" }
+          - { name: "drphyto.app",             url: "https://drphyto.app",             slug: "drphyto" }
+          - { name: "contractsguard.app",      url: "https://contractsguard.app",      slug: "contractsguard" }
+          - { name: "greenplanetgardening.eu", url: "https://greenplanetgardening.eu", slug: "greenplanet" }
+          - { name: "annamariafornaro.com",    url: "https://annamariafornaro.com",    slug: "annamaria" }
+    env:
+      ZOHO_USER: ${{ secrets.ZOHO_USER }}
+      ZOHO_APP_PASSWORD: ${{ secrets.ZOHO_APP_PASSWORD }}
+    steps:
+      - name: "Check ${{ matrix.site.name }}"
+        id: check
+        run: |
+          set +e
+          code=$(curl -m 30 -sS -o /dev/null -w "%{http_code}" -L --retry 2 --retry-delay 5 "${{ matrix.site.url }}")
+          echo "status=$code" >> "$GITHUB_OUTPUT"
+          echo "${{ matrix.site.name }} -> HTTP $code"
+          if [ -z "$code" ] || [ "$code" -lt 200 ] || [ "$code" -ge 400 ]; then
+            echo "DOWN (${{ matrix.site.name }}): HTTP $code"
+            exit 1
+          fi
+      - name: "E-Mail-Alarm via Zoho (nur bei Ausfall)"
+        if: failure() && env.ZOHO_APP_PASSWORD != ''
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.zoho.eu
+          server_port: 465
+          secure: true
+          username: ${{ secrets.ZOHO_USER }}
+          password: ${{ secrets.ZOHO_APP_PASSWORD }}
+          subject: "[DOWN] ${{ matrix.site.name }} nicht erreichbar (HTTP ${{ steps.check.outputs.status }})"
+          to: "fabionr1515+${{ matrix.site.slug }}@gmail.com"
+          from: "Uptime Monitor <${{ secrets.ZOHO_USER }}>"
+          body: |
+            ${{ matrix.site.name }} (${{ matrix.site.url }}) hat den Uptime-Check NICHT bestanden.
+            HTTP-Status: ${{ steps.check.outputs.status }}
+            Lauf-Details: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
