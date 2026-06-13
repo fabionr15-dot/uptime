@@ -15,7 +15,7 @@ jobs:
       fail-fast: false
       matrix:
         site:
-          - { name: "domaniai.com",            url: "https://downtest.invalid",            slug: "domani" }
+          - { name: "domaniai.com",            url: "https://domaniai.com",            slug: "domani" }
           - { name: "insidespark.app",         url: "https://insidespark.app",         slug: "insidespark" }
           - { name: "hdcleaners.ro",           url: "https://hdcleaners.ro",           slug: "hdcleaners" }
           - { name: "drphyto.app",             url: "https://drphyto.app",             slug: "drphyto" }
